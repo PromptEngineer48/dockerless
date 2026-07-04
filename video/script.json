@@ -1,0 +1,121 @@
+{
+  "video": {
+    "title": "Dockerless: Training Coding Agents Without Docker",
+    "paper": "https://arxiv.org/abs/2606.28436",
+    "resolution": [1920, 1080],
+    "fps": 30
+  },
+  "scenes": [
+    {
+      "id": "01_title",
+      "layout": "title",
+      "title": "DOCKERLESS",
+      "subtitle": "Environment-Free Program Verifier for Coding Agents",
+      "footer": "Shanghai Jiao Tong University · Douyin Group — arXiv 2606.28436",
+      "narration": "What's up guys, welcome back to the channel! Today we are looking at a brand new paper from Shanghai Jiao Tong University and the Douyin Group, called Dockerless. And the idea is wild — training coding agents without ever spinning up a single Docker container. Let's dive in."
+    },
+    {
+      "id": "02_problem",
+      "layout": "bullets",
+      "title": "The bottleneck: verification",
+      "bullets": [
+        "Training coding agents needs a verifier — did the patch really fix the issue?",
+        "Gold standard: run unit tests inside a per-repository Docker image",
+        "Every repo needs: custom image, pinned deps, curated tests, runners, parsers",
+        "Automated setup pipelines still fail on most repositories",
+        "Private, enterprise and legacy codebases often have no reproducible env at all"
+      ],
+      "narration": "So here is the problem. When you train a coding agent, you need a verifier — something that tells you whether the agent's code patch actually fixes the issue. The gold standard is executing unit tests inside a per-repository Docker image. But building those images means resolving dependencies, curating tests, writing runners and result parsers — for every single repository. And for private, enterprise, or legacy codebases, a reproducible environment often doesn't even exist."
+    },
+    {
+      "id": "03_idea",
+      "layout": "bullets",
+      "title": "The idea: judge, don't execute",
+      "bullets": [
+        "Dockerless verifies patches WITHOUT running them",
+        "It actively explores the repository to gather evidence — like a code reviewer, not a test runner",
+        "Needs zero per-repo setup: no image, no dependencies, no test suite",
+        "Existing LLM scorers only look at surface-level diffs — Dockerless is repo-grounded"
+      ],
+      "narration": "Dockerless flips this completely. Instead of executing the patch, it judges correctness by actually exploring the repository — like a senior code reviewer, not a test runner. No Docker image, no dependencies, no test suite required. And unlike previous LLM scorers that just eyeball the diff, Dockerless grounds its verdict in real repository evidence."
+    },
+    {
+      "id": "04_how",
+      "layout": "pipeline",
+      "title": "How it works",
+      "steps": [
+        {"label": "Input", "detail": "issue + reference patch + candidate patch"},
+        {"label": "Question generation", "detail": "2–4 verification questions"},
+        {"label": "Parallel sub-agents", "detail": "explore repo with read-only tools (grep, find, rg)"},
+        {"label": "Evidence-backed answers", "detail": "one per question"},
+        {"label": "Judge", "detail": "verdict token logits → score in [0, 1]"}
+      ],
+      "narration": "Here is how it works. Given the issue, a reference patch, and the candidate patch, Dockerless first generates two to four verification questions — things like: where in the repo should this fix take effect, or could this change break other modules. Then it dispatches parallel sub-agents that explore the codebase with read-only tools like grep and find, and each one returns a short, evidence-backed answer. Finally, a judge model takes all that evidence and turns the logits of a binary verdict token into a continuous correctness score between zero and one."
+    },
+    {
+      "id": "05_training",
+      "layout": "bullets",
+      "title": "Training the verifier",
+      "bullets": [
+        "Rejection sampling on 3.7K execution-labeled issues (SWE-Gym + Multi-SWE-RL)",
+        "Teacher explores repo → question-answer-judge trajectories",
+        "Keep only trajectories whose verdict matches the real test outcome",
+        "One Qwen3.5-9B backbone: questions + exploration + judging"
+      ],
+      "narration": "And they don't just prompt a big model. The verifier is trained with rejection sampling on three point seven thousand execution-labeled issues from SWE-Gym and Multi-SWE-RL — keeping only the question-answer-judge trajectories whose final verdict matches the real test outcome. A single nine-billion-parameter Qwen backbone is trained to do the question generation, the exploration, and the judging."
+    },
+    {
+      "id": "06_auc",
+      "layout": "chart_bars",
+      "title": "Verifier quality — AUC on SWE-bench Verified",
+      "unit": "AUC",
+      "max": 100,
+      "items": [
+        {"label": "Dockerless", "value": 81.0, "highlight": true},
+        {"label": "GPT-5.4 (judge)", "value": 75.9},
+        {"label": "GLM-5 (judge)", "value": 73.2},
+        {"label": "DeepSWE Verifier", "value": 66.7},
+        {"label": "R2E-Gym Verifier", "value": 64.3}
+      ],
+      "note": "+14.3 AUC over the strongest trained open-source verifier · 72.1 on Multi-SWE-bench Flash",
+      "narration": "So how good is it as a verifier? On SWE-bench Verified, Dockerless hits eighty one AUC — that's fourteen point three points above the strongest trained open-source verifier, and it even beats frontier models like GPT five point four and GLM five used as zero-shot judges. Same story on the multilingual split, where it scores seventy two point one."
+    },
+    {
+      "id": "07_resolve",
+      "layout": "chart_groups",
+      "title": "Fully env-free post-training — resolve rate (%)",
+      "series": [
+        {"name": "Qwen3.5-9B (base)", "color": "series2"},
+        {"name": "Dockerless-RL-9B (env-free)", "color": "series1"}
+      ],
+      "groups": [
+        {"label": "SWE-bench Verified", "values": [59.6, 62.0]},
+        {"label": "SWE-bench Multilingual", "values": [41.3, 50.0]},
+        {"label": "SWE-bench Pro", "values": [32.3, 35.2]}
+      ],
+      "max": 70,
+      "note": "Matches env-based training with oracle test execution (62.4 / 51.3 / 35.7) — with zero Docker",
+      "narration": "But the real payoff is post-training. Using Dockerless to filter SFT trajectories and as the reinforcement learning reward — with zero Docker environments — their nine-B model reaches sixty two percent on SWE-bench Verified, fifty percent on Multilingual, and thirty five point two on Pro. That is up to eight point seven points over the base model, and it basically matches full environment-based training with oracle test execution."
+    },
+    {
+      "id": "08_why",
+      "layout": "bullets",
+      "title": "Why this matters",
+      "bullets": [
+        "The long tail of real-world code just became trainable",
+        "Private repos, legacy systems, codebases with no tests",
+        "Rollouts + SFT filtering + RL rewards — all on one minimal Linux image",
+        "Env-free post-training is now a viable, scalable path"
+      ],
+      "narration": "Why does this matter? Because the long tail of real-world code — private repos, legacy systems, codebases with zero tests — just became trainable. Rollout collection, data filtering, and RL rewards can all run on one minimal Linux image. That is a massive scalability unlock for coding agents."
+    },
+    {
+      "id": "09_outro",
+      "layout": "title",
+      "title": "Thanks for watching!",
+      "subtitle": "Paper link in the description 👇",
+      "footer": "Like · Subscribe · Ring the bell",
+      "narration": "Link to the paper is in the description below. If you enjoyed this one, smash that like button, subscribe to the channel, and I will see you in the next video. Peace!"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+video/output/
+video/voice/ref.wav
+video/voice/ref.txt

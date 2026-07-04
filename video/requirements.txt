@@ -1,0 +1,10 @@
+# slides
+playwright>=1.49
+
+# voice cloning (Qwen3-TTS, open source, Apache-2.0)
+qwen-tts
+torch
+soundfile
+
+# video assembly (bundles a static ffmpeg binary)
+imageio-ffmpeg>=0.6
